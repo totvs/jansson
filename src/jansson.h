@@ -14,6 +14,14 @@
 
 #include "jansson_config.h"
 
+/*#ifdef _WIN32
+ #include <stdatomic.h>
+#endif*/
+
+#ifdef HAVE_STDATOMIC_H
+#include <stdatomic.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -107,10 +115,17 @@ json_t *json_null(void);
 
 /* do not call JSON_INTERNAL_INCREF or JSON_INTERNAL_DECREF directly */
 #if JSON_HAVE_ATOMIC_BUILTINS
-#define JSON_INTERNAL_INCREF(json)                                                       \
-    __atomic_add_fetch(&json->refcount, 1, __ATOMIC_ACQUIRE)
-#define JSON_INTERNAL_DECREF(json)                                                       \
-    __atomic_sub_fetch(&json->refcount, 1, __ATOMIC_RELEASE)
+  #ifdef _WIN32
+    #define JSON_INTERNAL_INCREF(json)                                                       \
+            atomic_fetch_add_explicit(&json->refcount, 1, std::memory_order_acquire);
+    #define JSON_INTERNAL_DECREF(json)                                                       \
+            atomic_fetch_sub_explicit(&json->refcount, 1, std::memory_order_release);
+  #else
+    #define JSON_INTERNAL_INCREF(json)                                                       \
+        __atomic_add_fetch(&json->refcount, 1, __ATOMIC_ACQUIRE)
+    #define JSON_INTERNAL_DECREF(json)                                                       \
+        __atomic_sub_fetch(&json->refcount, 1, __ATOMIC_RELEASE)
+  #endif
 #elif JSON_HAVE_SYNC_BUILTINS
 #define JSON_INTERNAL_INCREF(json) __sync_add_and_fetch(&json->refcount, 1)
 #define JSON_INTERNAL_DECREF(json) __sync_sub_and_fetch(&json->refcount, 1)
